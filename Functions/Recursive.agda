@@ -2,6 +2,7 @@ module Functions.Recursive where
 
 open import Data.Bool using (Bool; true; false; not)
 open import Data.Nat using (ℕ; suc; zero)
+open import Sets.Recursive using (BinTree; leaf; node)
 
 _+_ : ℕ → ℕ → ℕ
 0 + n = n
@@ -119,3 +120,7 @@ _*′_ : ℤ → ℤ → ℤ
 Z *′ y = Z
 (x ⁺¹) *′ y = mul x y +′ y
 - x ⁻¹ *′ y = neg (mul x y +′ y)
+
+mirror : BinTree → BinTree
+mirror leaf = leaf
+mirror (node x y) = node (mirror y) (mirror x)
