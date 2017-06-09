@@ -49,5 +49,26 @@ isEven′ (suc (suc x)) with isEven′ x
 ¬Even1 (double (suc zero)) ()
 ¬Even1 (double (suc (suc n))) ()
 
--- nextEven : ∀ {n} → Even n → Even (suc (suc n))
--- nextEven (double n) rewrite cong suc (suc-+ n n) = double (suc n) ???
+nextEven : ∀ {n} → Even n → Even (suc (suc n))
+nextEven (double n) with Even (suc (suc (n + n))) | cong Even (cong suc (suc-+ n n))
+... | .(Even (suc n + suc n)) | refl = double (suc n)
+-- nextEven (double n) rewrite cong suc (suc-+ n n) = double (suc n)
+-- nextEven (double n) rewrite cong Even (cong suc (suc-+ n n)) = double (suc n)
+
+prevEven : ∀ {n} → Even (suc (suc n)) → Even n
+prevEven e = toEven (prevEven′ (toEven′ e))
+
+isEven : (n : ℕ) → Dec (Even n)
+isEven zero = yes (double 0)
+isEven (suc zero) = no (λ t → ¬Even1 t refl)
+isEven (suc (suc n)) with isEven n
+... | yes e = yes (nextEven e)
+... | no ¬p = no (λ x → ¬p (prevEven x))
+
+data _≤‴_ : ℕ → ℕ → Set where
+  diff : ∀ i j → i ≤‴ j + i
+
+infix 4 _≤‴_
+
+data Vec (A : Set) : ℕ → Set where
+  vec : (x : List A) → Vec A (length x)
