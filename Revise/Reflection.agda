@@ -14,9 +14,9 @@ open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; con
 ex : {A : Set} → (A → Set) → Set
 ex = Σ _
 
-syntax ex (λ y → x) = ∃ y , x
+syntax ex (λ y → x) = ∃ y [ x ]
 
-module _ {A : Set} where
+module Re1 {A : Set} where
 
   private V = Vec A
 
@@ -79,14 +79,14 @@ module _ {A : Set} where
   ≈→~ [] = zero
   ≈→~ (x₁ ∷ x₂) = sucSimp (≈→~ x₂) ∘simp ~↪ x₁
 
-  ↪-exch : ∀ {n x y} {xs : V n} {xxs yxxs} → x ↪ xs ≋ xxs → y ↪ xxs ≋ yxxs → ∃ yxs , (y ↪ xs ≋ yxs) × (x ↪ yxs ≋ yxxs)
+  ↪-exch : ∀ {n x y} {xs : V n} {xxs yxxs} → x ↪ xs ≋ xxs → y ↪ xxs ≋ yxxs → ∃ yxs [ (y ↪ xs ≋ yxs) × (x ↪ yxs ≋ yxxs) ]
   ↪-exch zero zero = _ , zero , suc zero
   ↪-exch zero (suc q) = _ , q , zero
   ↪-exch (suc p) zero = _ , zero , suc (suc p)
   ↪-exch (suc p) (suc q) with ↪-exch p q
   ... | _ , s , t = _ , suc s , suc t
 
-  getOut : ∀ {n x} {xs : V n} {xxs xys} → x ↪ xs ≋ xxs → xxs ≈ xys → ∃ ys , (x ↪ ys ≋ xys) × (xs ≈ ys)
+  getOut : ∀ {n x} {xs : V n} {xxs xys} → x ↪ xs ≋ xxs → xxs ≈ xys → ∃ ys [ (x ↪ ys ≋ xys) × (xs ≈ ys) ]
   getOut zero (x₁ ∷ q) = _ , x₁ , q
   getOut (suc p) (x₁ ∷ q) with getOut p q
   ... | _ , m , f with ↪-exch m x₁
@@ -112,6 +112,8 @@ module _ {A : Set} where
   cancel (zero ∷ x₂) = x₂
   cancel (suc x₂ ∷ x₃ ∷ x₄) = zero ∷ x₄ ∘≈ x₃ ∷ ≈-refl ∘≈ x₂ ∷ ≈-refl
 
+open Re1
+
 t1 : 1 ∷ 2 ∷ 3 ∷ 4 ∷ [] ≈ 3 ∷ 2 ∷ 4 ∷ 1 ∷ []
 t1 = suc (suc (suc zero)) ∷ suc zero ∷ ≈-refl
 
@@ -119,9 +121,128 @@ f2 : 1 ∷ 2 ∷ [] ≈ 1 ∷ 1 ∷ [] → ⊥
 f2 (zero ∷ () ∷ x)
 f2 (suc zero ∷ () ∷ x₁)
 
-module _ {A : Set} {{eq : Decidable {A = A} _≡_}} where
+module Re2 {A : Set} {eq : Decidable {A = A} _≡_} where -- why double brackets?
 
   private V = Vec A
 
-  getOut′ : ∀ {n} x (xs : V (suc n)) → Dec (∃ ys , x ↪ ys ≋ xs)
-  getOut′ = {!   !}
+  getOut′ : ∀ {n} → (x : A) → (xs : V (suc n)) → Dec (∃ ys [ x ↪ ys ≋ xs ])
+  getOut′ x (x₁ ∷ []) with eq x x₁
+  ... | yes refl = yes (_ , zero)
+  ... | no ¬p = no (¬p ∘f f) where
+    f : ∃ ys [ x ↪ ys ≋ x₁ ∷ [] ] → x ≡ x₁
+    f ([] , zero) = refl
+  getOut′ x (x₁ ∷ x₂ ∷ xs) with eq x x₁
+  ... | yes refl = yes (_ , zero)
+  ... | no ¬p with getOut′ x (x₂ ∷ xs)
+  ... | yes (e , pr) = yes (x₁ ∷ e , suc pr)
+  ... | no ¬q = no f where
+    f : ∃ ys [ x ↪ ys ≋ x₁ ∷ x₂ ∷ xs ] → ⊥
+    f (_ , zero) = ¬p refl
+    f (_ , suc pr) = ¬q (_ , pr)
+
+  infix 2 _≈?_
+
+  _≈?_ : ∀ {n} → (xs ys : V n) → Dec (xs ≈ ys)
+  [] ≈? [] = yes []
+  x ∷ x₁ ≈? y with getOut′ x y
+  ... | no ¬p = no f where
+    f : x ∷ x₁ ≈ y → ⊥
+    f (e ∷ p) = ¬p (_ , e)
+  ... | yes (xs , pr) with x₁ ≈? xs
+  ... | yes e = yes (pr ∷ e)
+  ... | no ¬q = no f where
+    f : x ∷ x₁ ≈ y → ⊥
+    f e = ¬q (cancel po) where
+      po : x ∷ x₁ ≈ x ∷ xs
+      po = e ∘≈ ≈-sym (pr ∷ ≈-refl)
+
+open Re2 {A = ℕ} {eq = _≟_}
+
+try : Dec (_ ≈ _)
+try = 1 ∷ 20 ∷ 3 ∷ 4 ∷ [] ≈? 3 ∷ 2 ∷ 4 ∷ 1 ∷ []
+
+open import Reflection hiding (_≟_)
+open import Data.List using ([]; _∷_)
+open import Data.Maybe using (Maybe; just; nothing; maybe′)
+
+parseℕ : Term → Maybe ℕ
+parseℕ (con c []) with c ≟-Name quote ℕ.zero
+... | yes _ = just 0
+... | no _ = nothing
+parseℕ (con c (arg _ x ∷ [])) with c ≟-Name quote ℕ.suc | parseℕ x
+... | yes _ | just n = just (suc n)
+... | _ | _ = nothing
+parseℕ (lit (nat n)) = just n
+parseℕ _ = nothing
+
+parseℕ′ : Term → ℕ
+parseℕ′ t = maybe′ id 0 (parseℕ t)
+
+data Side : Set where
+  side : ∀ {n} → Vec ℕ n → Side
+
+parseSide : Term → Maybe Side
+parseSide (con c (_ ∷ _ ∷ [])) = just (side [])
+parseSide (con c (_ ∷ _ ∷ _ ∷ arg _ x ∷ arg _ xs ∷ [])) with parseSide xs | parseℕ x
+... | just (side s) | just n = just (side (n ∷ s))
+... | _ | _ = nothing
+parseSide _ = nothing
+
+data Solution : Set where
+  ok : ∀ {n} {xs ys : Vec ℕ n} → Dec (xs ≈ ys) → Solution
+  error : ℕ → Solution
+
+computeSolution : Term → Term → Solution
+computeSolution l r with parseSide l | parseSide r
+... | nothing | _ = error 0
+... | _ | nothing = error 1
+... | just (side {a} b) | just (side {a′} d) with a ≟ a′
+... | yes refl = ok (b ≈? d)
+... | no _ = error 2
+
+data Neg (A : Set) : Set where
+  neg : (A → ⊥) → Neg A
+
+err : ℕ → Σ Set id
+err n = (n ≡ n) , refl
+
+parse : Term → Σ Set id
+parse (def c (A ∷ n ∷ arg _ l ∷ arg _ r ∷ [])) with c ≟-Name quote _≈_
+... | yes _ = ⟦ computeSolution l r ⟧ where
+  ⟦_⟧ : Solution → Σ Set id
+  ⟦ ok (yes d) ⟧ = _ , d
+  ⟦ error n ⟧ = err n
+  ⟦ _ ⟧ = err 10
+... | no _ with c ≟-Name quote _~_
+... | yes _ = ⟦ computeSolution l r ⟧ where
+  ⟦_⟧ : Solution → Σ Set id
+  ⟦ ok (yes d) ⟧ = _ , ≈→~ d
+  ⟦ error n ⟧ = err n
+  ⟦ _ ⟧ = err 15
+... | no _ = err 13
+parse (def c′ (arg _ (def c (A ∷ n ∷ arg _ l ∷ arg _ r ∷ [])) ∷ [])) with c′ ≟-Name quote Neg
+... | yes _ = ⟦ computeSolution l r ⟧ where
+  ⟦_⟧ : Solution → Σ Set id
+  ⟦ ok (no d) ⟧ = _ , neg d
+  ⟦ error n ⟧ = err n
+  ⟦ _ ⟧ = err 11
+... | no _ = err 12
+parse _ = err 3
+
+solvePerm : (g : Term) → proj₁ (parse g)
+solvePerm g = proj₂ (parse g)
+
+x : 1 ∷ 2 ∷ 2 ∷ 4 ∷ 5 ∷ [] ≈ 2 ∷ 2 ∷ 1 ∷ 4 ∷ 5 ∷ []
+x = quoteGoal t in solvePerm t
+
+x1 : 1 ∷ 2 ∷ 3 ∷ 4 ∷ 5 ∷ [] ~ 1 ∷ 2 ∷ 3 ∷ 4 ∷ 5 ∷ []
+x1 = quoteGoal t in solvePerm t
+
+x2 : 1 ∷ 2 ∷ 2 ∷ 4 ∷ 5 ∷ [] ~ 2 ∷ 2 ∷ 1 ∷ 4 ∷ 5 ∷ []
+x2 = quoteGoal t in solvePerm t
+
+x3 : 1 ∷ 2 ∷ 2 ∷ 4 ∷ 6 ∷ 7 ∷ 8 ∷ 1 ∷ 5 ∷ [] ~ 2 ∷ 8 ∷ 1 ∷ 6 ∷ 7 ∷ 2 ∷ 1 ∷ 4 ∷ 5 ∷ []
+x3 = quoteGoal t in solvePerm t
+
+x′ : Neg (1 ∷ 2 ∷ 2 ∷ 4 ∷ 5 ∷ [] ≈ 2 ∷ 12 ∷ 1 ∷ 4 ∷ 5 ∷ [])
+x′ = quoteGoal t in solvePerm t
